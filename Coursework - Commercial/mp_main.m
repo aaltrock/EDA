@@ -59,13 +59,21 @@ sNum = floor(size(trn_x, 1)/bNum);
 lRate = 0.5;
 momentum = 0.1;
 regCost = 0.0001;
+
+% Early stopping strategy - by reaching desired accuracy before epoch
 E_STOP = 10;
 desire_acc = 0.8;
 
-conf = compile_mp_conf(trn_x, hidNum, activationFnc, eNum, bNum, sNum, lRate, momentum, regCost, E_STOP, desire_acc)
+% Early stopping strategy - stop after a set number of epochs with
+% continually degrading 
+E_STOP_LR_REDUCE = 0.1*eNum;
+
+% Compile above parameters into a conf variable
+conf = compile_mp_conf(trn_x, hidNum, activationFnc, eNum, bNum, sNum, lRate, momentum, regCost, E_STOP, desire_acc, E_STOP_LR_REDUCE)
 bs = [];
 Ws = [];
 
+% Compile MP, run training, validation and testing per the configuration
 model = train_mp(conf, Ws, bs, trn_x, trn_y, val_x, val_y);
 
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
