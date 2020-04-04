@@ -1,4 +1,4 @@
-% Codes adapted from: Neural Computing module Tutorial 4 train_nn function
+% Codes modified from: Neural Computing module Tutorial 4 train_nn function
 % Original from Artur S. d'Avila Garcez, Department of Computer Science,
 % City, University of London
 
@@ -10,13 +10,17 @@
 % val_lab = Validation classification labels
 % val_dat = Validation features
 
-function model = train_mp(conf,Ws,bs,trn_dat,trn_lab,vld_dat,vld_lab)
+function [model, all_epochs_metrics] = train_mp(conf,Ws,bs,trn_dat,trn_lab,vld_dat,vld_lab)
 
 % INTERNAL VARIABLES:
 % SZ = sample size
 % VisNum = feature size
 % depth = no. of layers (hiddena nd output)
 % labNum = no. of output classes
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% DEFINE MODEL
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Determine training samples and features sizes
 [SZ,visNum] = size(trn_dat);
@@ -31,16 +35,18 @@ if isempty(Ws)
  % Random initialisation of Weights Ws if not provided
     model.Ws{1} = (1/visNum)*(2*rand(visNum,conf.hidNum(1))-1);
     DW{1} = zeros(size(model.Ws{1}));
-    % Add another layer of weights for each layer after 1st hidden
-    % layer
+    % Add another layer of weights for each layer after 1st hidden layer
     for i=2:depth-1
         model.Ws{i} = (1/conf.hidNum(i-1))*(2*rand(conf.hidNum(i-1),conf.hidNum(i))-1);
         DW{i} = zeros(size(model.Ws{i}));
     end
     model.Ws{depth} = (1/conf.hidNum(depth-1))*(2*rand(conf.hidNum(depth-1),labNum)-1);
+    % Initialise DW
     DW{depth} = zeros(size(model.Ws{depth}));
 else
+    % Otherwise assigned given weights to the model
     model.Ws = Ws;
+    % Initialise DW
     for i=1:depth, DW{i} = zeros(size(model.Ws{i})); size(model.Ws{i}); end
     clear Ws
 end
@@ -68,10 +74,12 @@ plot_vld_acc = [];
 plot_mse = [];
 
 vld_best = 0;
+e_best = 0;
 es_count = 0;
 acc_drop_count = 0;
 vld_acc  = 0;
 tst_acc  = 0;
+vld_perf = [];
 
 % Initialise epoch count
 e = 0;
@@ -80,10 +88,20 @@ e = 0;
 running = 1;
 
 lr = conf.params(1);
-% While no early stopping or witin epoch limit set
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% FITTING MODEL
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% While no early stopping or reach max epoch no.
 while running
+    
+    % Reset MSE
     MSE = 0;
+    
+    % Increment epoch count
     e = e+1;
+    
     % For each batch
    for b=1:bNum
        % Get indexes of observations for batch from training set
@@ -120,8 +138,8 @@ while running
        % Calculate instaneous energy of neurons
        err{depth} = (y-output{depth}).*deriv(conf.activationFnc{depth},input{depth});
        
-       % Calculate output based on maximum of each row across the two
-       % labels
+       % Determine predicted classification per the max of each label
+       % output values
        [~,cout] = max(output{depth},[],2);                                                                                                  
        %sum(sum(batch_y+1==cout))
        
@@ -152,59 +170,132 @@ while running
        DB{1} = lr*mean(err{1}) + conf.params(3)*DB{1};
        model.bs{1} = model.bs{1} + DB{1};       
    end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% EVALUATE PERFORMANCE WITH VALIDATION SET
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    
    % Get training classification error
-   %trn_dat
-   %model.Ws{1} = 0*model.Ws{1};
-   %model.Ws{2} = 0*model.Ws{2};
-   %pause
    cout = run_nn(conf.activationFnc,model,trn_dat); 
-   %cout
    trn_acc = sum((cout-1)==trn_lab)/size(trn_lab,1);
    
-   % Run again with validatio
+   % Run again with validation set
    cout = run_nn(conf.activationFnc,model,vld_dat);
    vld_acc = sum((cout-1)==vld_lab)/size(vld_lab,1);
-   fprintf('[Eppoch %4d] MSE = %.5f| Train acc = %.5f|Validation = %.5f\n',e,MSE,trn_acc,vld_acc);
-   % Collect data for plot
+   fprintf('[Eppoch %4d] MSE = %.5f | Train acc = %.5f | Validation acc = %.5f\n',e,MSE,trn_acc,vld_acc);
    
+   % Calculate metrics
+    [~, metrics] = calc_metrics(cout, vld_lab, 1, 0);
+    all_epochs_metrics{e} = metrics;
+   
+   % Collect data for plot
    plot_trn_acc = [plot_trn_acc trn_acc];
    plot_vld_acc = [plot_vld_acc vld_acc];
    plot_mse     = [plot_mse MSE];
-   %pause;
    
-   %% EARLY STOPPING
-   % PARAM DECAY
-    if isfield(conf,'E_STOP_LR_REDUCE')
-        if vld_acc<=vld_best
-            acc_drop_count = acc_drop_count + 1;
-            % If accuracy reduces for a number of time, then turn back to the
-            % best model and reduce the learning rate
-            if acc_drop_count > conf.E_STOP_LR_REDUCE
-                fprintf('Learning rate reduced!\n');
-                acc_drop_count = 0;
-                es_count = es_count + 1; %number of reduce learning rate
-                lr = lr/10;
-                model = model_best;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% EARLY STOPPING
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   % If early stop is set
+   if conf.early_stopping_option ~= "NO_EARLY_STOP"
+       % Option VAL_ACC_REDUCE_MULTI: Terminate after repeated deteriation of validation accuracy
+        if conf.early_stopping_option == "VAL_ACC_REDUCE_MULTI_STOP"
+            fprintf('EARLY STOPPING OPTIONS: VAL_ACC_REDUCE_MULTI_STOP\n');
+            % If current epoch validation performance is not the best
+            if vld_acc<=vld_best
+                % Increment counter for dropping validation performance
+                acc_drop_count = acc_drop_count + 1;
+                % If accuracy reduces for a number of time defined, end
+                if acc_drop_count > conf.E_STOP_REPEAT
+                    % set model from past best performing model
+                    model = model_best;
+                    % Stop running
+                    running = 0;
+                end
+            % Else performance is best yet over the validation data set
+            else
+                % Set current validation accuracy performance as best
+                vld_best = vld_acc;
+                % Set current model as best performing model
+                model_best = model;
+                % Capture epoch number where best model so far identified
+                e_best = e;
             end
-        else
-            es_count = 0;
-            acc_drop_count = 0;
-            vld_best = vld_acc;
-            tst_best = tst_acc;
-            model_best = model;
         end
-    end
-    % Early stopping
-    if isfield(conf,'E_STOP') 
-        if isfield(conf,'desire_acc') && vld_acc >= conf.desire_acc, running=0;end
-        if es_count > conf.E_STOP, running=0; end
-    end
-
+        
+        % Option REDUCE_LR: Reduce Learning Rate after repeated deteriation of validation accuracy
+        if conf.early_stopping_option == "VAL_ACC_REDUCE_LOWER_LR"
+            fprintf('EARLY STOPPING OPTIONS: VAL_ACC_REDUCE_LOWER_LR\n');
+            % If current epoch validation performance is not the best
+            if vld_acc<=vld_best
+                % Increment counter for dropping validation performance
+                acc_drop_count = acc_drop_count + 1;
+                % If accuracy reduces for a number of time, then turn back to the
+                % best model and reduce the learning rate
+                if acc_drop_count > conf.E_STOP_REPEAT
+                    acc_drop_count = 0;
+                    es_count = es_count + 1; %number of reduce learning rate
+                    lr = lr * conf.LR_REDUCE_FACTOR;
+                    model = model_best;
+                    fprintf('Learning rate reduced to %.7f!\n', lr);
+                end
+            % Else performance is best yet over the validation data set
+            else
+                % Reset counter of degrading validation set perfroamcne
+                es_count = 0;
+                acc_drop_count = 0;
+                % Set current validation accuracy performance as best
+                vld_best = vld_acc;
+                % Set current model as best performing model
+                model_best = model;
+                % Capture epoch number where best model so far identified
+                e_best = e;
+            end
+        end
+        
+        % Option DESIRE_VAL_ACC: Terminate when desired validation accuracy reach
+        if conf.early_stopping_option == "DESIRE_VAL_ACC"
+            fprintf('EARLY STOPPING OPTIONS: DESIRE_VAL_ACC\n');
+            % If the current validation accuracy is better
+            if vld_acc > vld_best
+                % Replace best validation accuracy
+                vld_best = vld_acc;
+                % Capture epoch number
+                    e_best = e;
+                end
+            % Terminate upon reaching the desired accuracy
+            if vld_acc >= conf.E_STOP_VAL_DESIRE_ACC
+                % Best model is set to current model
+                model_best = model;
+                % Stop running
+                running=0;
+            end
+        end
+        
+        % No early stop - run through all epochs
+        else
+            fprintf('EARLY STOPPING OPTIONS: NO_EARLY_STOP\n');
+            % If validation accuracy is better than previous epoch
+            if vld_acc>vld_best
+                % Best model is set to current model
+                model_best = model;
+                % Capture epoch number where best model so far identified
+                e_best = e;
+                % Capture best validation accuracy
+                vld_best = vld_acc;
+            end
+        
+   end % ~NO_EARLY_STOP
+    
     % Check stop
     if e>=conf.eNum, running=0; end
     
-end
+end %while running
+
+    % PRINT BEST EPOCH, VALIDATION ACCURACY
+    fprintf('[Best performing Eppoch %d] Validation acc = %.10f\n', e_best, vld_best);
+
+    % OVERALL PERFORMANCE EVALUATION
     fig1 = figure(1);
     set(fig1,'Position',[10,20,300,200]);
     plot(1:size(plot_trn_acc,2),plot_trn_acc,'r');
