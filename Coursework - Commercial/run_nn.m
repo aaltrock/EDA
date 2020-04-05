@@ -14,8 +14,6 @@ function [cout_raw, cout] = run_nn(actFncs,model,dat)
     % Apply soft max to convert to probability distribution
     for i=1:size(cout_raw, 1)
         cout_raw(i,:) = softmax(cout_raw(i,:)')';
-%         cout_raw(i, 1) = cout_raw(i, 1) / (cout_raw(i, 1) + cout_raw(i, 2));
-%         cout_raw(i, 2) = cout_raw(i, 2) / (cout_raw(i, 1) + cout_raw(i, 2));
     end
     
 end
