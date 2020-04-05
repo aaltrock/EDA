@@ -96,8 +96,9 @@ function [samples_tbl, performance_tbl] = calc_metrics(pred_y_raw, pred_y, actua
     cout_pr = max(pred_y_raw, [], 2);
     
     % Calculate ROC and AUC
-    [ROC_x, ROC_y, ~, AUC] = perfcurve(actual_y, cout_pr, label_pos);
-    
+%     [ROC_x, ROC_y, ~, AUC] = perfcurve(actual_y, cout_pr, label_pos);
+    [ROC_y, ROC_x, Thresholds] = calc_ROC(actual_y, pred_y_raw(:,2), 1, 0);
+
     % Compile into a table
     performance_tbl = array2table([epoch tpr tnr ppv npv fnr fpr acc ...
         TP_cnt, FP_cnt, TN_cnt, FN_cnt]);
@@ -108,6 +109,6 @@ function [samples_tbl, performance_tbl] = calc_metrics(pred_y_raw, pred_y, actua
     performance_tbl.PRED_PR = {cout_pr};
     performance_tbl.ROC_x = {ROC_x};
     performance_tbl.ROC_y = {ROC_y};
-    performance_tbl.AUC = AUC;
+%     performance_tbl.AUC = AUC;
     
 end

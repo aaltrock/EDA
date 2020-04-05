@@ -5,12 +5,14 @@
 % conf = neural network configurations (see compile_mp_conf.m)
 % Ws = supplied weights
 % bs = supplied biases
-% trn_lab = Trained classification labels
-% trn_dat = Training features
-% val_lab = Validation classification labels
-% val_dat = Validation features
+% trn_y = Trained classification labels
+% trn_x = Training features
+% vld_y = Validation classification labels
+% vld_x = Validation features
 
-function [model, all_epochs_metrics] = train_mp(conf,Ws,bs,trn_dat,trn_lab,vld_dat,vld_lab)
+function [model, e_best, trn_cout_raws, trn_couts, ...
+    vld_cout_raws, vld_couts, best_trn_metrics, best_vld_metrics] ...
+    = train_mp(conf, Ws, bs, trn_x, trn_y, vld_x, vld_y)
 
 % INTERNAL VARIABLES:
 % SZ = sample size
@@ -23,13 +25,13 @@ function [model, all_epochs_metrics] = train_mp(conf,Ws,bs,trn_dat,trn_lab,vld_d
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Determine training samples and features sizes
-[SZ,visNum] = size(trn_dat);
+[SZ,visNum] = size(trn_x);
 
 % Calculate no. of layers (hidden + output)
 depth = length(conf.hidNum)+1;
 
 % Calculate output class size
-labNum = size(unique(trn_lab),1);
+labNum = size(unique(trn_y),1);
 
 if isempty(Ws)
  % Random initialisation of Weights Ws if not provided
@@ -66,7 +68,7 @@ end
 bNum = conf.bNum;
 
 % Set batch nr 1 if not defined (i.e. 0)
-if conf.bNum == 0, bNum   = round(SZ/conf.sNum); end
+if conf.bNum == 0, bNum = round(SZ/conf.sNum); end
 
 % Variables to hold plot data points
 plot_trn_acc = [];
@@ -89,6 +91,7 @@ e = 0;
 % Set running flag as 1
 running = 1;
 
+% Set learning rate
 lr = conf.params(1);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -110,8 +113,8 @@ while running
        inx = (b-1)*conf.sNum+1:min(b*conf.sNum,SZ);
        
        % Compile batch features and output classification
-       batch_x = trn_dat(inx,:);
-       batch_y = trn_lab(inx)+1;
+       batch_x = trn_x(inx,:);
+       batch_y = trn_y(inx)+1;
        
        % Batch size
        sNum = size(batch_x,1);
@@ -172,26 +175,46 @@ while running
        DB{1} = lr*mean(err{1}) + conf.params(3)*DB{1};
        model.bs{1} = model.bs{1} + DB{1};       
    end
-
+   
+   % Capture models after fitting in epoch
+   models{e} = model;
+   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% EVALUATE PERFORMANCE WITH VALIDATION SET
+% EVALUATE PERFORMANCE AFTER FITTING WITH TRAINING SET
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    
    % Get training classification error
-   [cout_raw, cout] = run_nn(conf.activationFnc,model,trn_dat); 
-   trn_acc = sum((cout-1)==trn_lab)/size(trn_lab,1);
+   [trn_cout_raw, trn_cout] = run_nn(conf.activationFnc,model,trn_x); 
+   trn_acc = sum((trn_cout-1)==trn_y)/size(trn_y,1);
    
-   % Run again with validation set
-   [cout_raw, cout] = run_nn(conf.activationFnc,model,vld_dat);
    % Change back to lable value from 2 to 1, from 1 to 0
-   cout = cout - 1;
-   vld_acc = sum(cout==vld_lab)/size(vld_lab,1);
+   trn_cout = trn_cout - 1;
+   
+   trn_cout_raws{e} = trn_cout_raw;
+   trn_couts{e} = trn_cout;
+   
+%    % Calculate metrics
+%    [~, trn_metric] = calc_metrics(trn_cout_raw, trn_cout, trn_y, 1, 0, e);
+%    trn_metrics{e} = [trn_metric];
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% EVALUATE PERFORMANCE WITH VALIDATION SET
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+   % Run again with validation set
+   [vld_cout_raw, vld_cout] = run_nn(conf.activationFnc,model,vld_x);
+   % Change back to lable value from 2 to 1, from 1 to 0
+   vld_cout = vld_cout - 1;
+   vld_acc = sum(vld_cout==vld_y)/size(vld_y,1);
    fprintf('[Epoch %4d] MSE = %.5f | Train acc = %.5f | Validation acc = %.5f\n',e,MSE,trn_acc,vld_acc);
    
-   % Calculate metrics
-    [~, metrics] = calc_metrics(cout_raw, cout, vld_lab, 1, 0, e);
-    all_epochs_metrics{e} = [metrics];
+   vld_cout_raws{e} = vld_cout_raw;
+   vld_couts{e} = vld_cout;
    
+%    % Calculate metrics
+%     [~, vld_metric] = calc_metrics(vld_cout_raw, vld_cout, vld_y, 1, 0, e);
+%     vld_metrics{e} = [vld_metric];
+    
    % Collect data for plot
    plot_trn_acc = [plot_trn_acc trn_acc];
    plot_vld_acc = [plot_vld_acc vld_acc];
@@ -204,7 +227,6 @@ while running
    if conf.early_stopping_option ~= "NO_EARLY_STOP"
        % Option VAL_ACC_REDUCE_MULTI: Terminate after repeated deteriation of validation accuracy
         if conf.early_stopping_option == "VAL_ACC_REDUCE_MULTI_STOP"
-%             fprintf('EARLY STOPPING OPTIONS: VAL_ACC_REDUCE_MULTI_STOP\n');
             % If current epoch validation performance is not the best
             if vld_acc<=vld_best
                 % Increment counter for dropping validation performance
@@ -229,7 +251,6 @@ while running
         
         % Option REDUCE_LR: Reduce Learning Rate after repeated deteriation of validation accuracy
         if conf.early_stopping_option == "VAL_ACC_REDUCE_LOWER_LR"
-%             fprintf('EARLY STOPPING OPTIONS: VAL_ACC_REDUCE_LOWER_LR\n');
             % If current epoch validation performance is not the best
             if vld_acc<=vld_best
                 % Increment counter for dropping validation performance
@@ -259,7 +280,6 @@ while running
         
         % Option DESIRE_VAL_ACC: Terminate when desired validation accuracy reach
         if conf.early_stopping_option == "DESIRE_VAL_ACC"
-%             fprintf('EARLY STOPPING OPTIONS: DESIRE_VAL_ACC\n');
             % If the current validation accuracy is better
             if vld_acc > vld_best
                 % Replace best validation accuracy
@@ -278,7 +298,6 @@ while running
         
         % No early stop - run through all epochs
         else
-%             fprintf('EARLY STOPPING OPTIONS: NO_EARLY_STOP\n');
             % If validation accuracy is better than previous epoch
             if vld_acc>vld_best
                 % Best model is set to current model
@@ -299,8 +318,19 @@ end %while running
     % PRINT BEST EPOCH, VALIDATION ACCURACY
     fprintf('[Best performing Epoch %d] Validation acc = %.10f\n', e_best, vld_best);
     
+    % Return the best performing model
+    model = models{e_best};
+    
+    % Calculate Training best metrics per best accuracy epoch
+    [~, best_trn_metric] = calc_metrics(trn_cout_raws{e_best}, trn_couts{e_best}, trn_y, 1, 0, e_best);
+    best_trn_metrics = best_trn_metric;
+
+    % Calculate Validation metrics per best accuracy epoch
+    [~, best_vld_metric] = calc_metrics(vld_cout_raw, vld_cout, vld_y, 1, 0, e_best);
+    best_vld_metrics = best_vld_metric;
+    
     % ROC based on best performing model
-%     [X, Y, T, AUC] = perfcurve(vld_lab, cout, 1);
+%     [X, Y, T, AUC] = perfcurve(vld_y, cout, 1);
 
 %     % OVERALL PERFORMANCE EVALUATION
 %     fig1 = figure(1);
@@ -316,43 +346,3 @@ end %while running
 %     plot(1:size(plot_mse,2),plot_mse);    
 %     xlabel('Epochs');ylabel('MSE');
 end
-
-
-
-
-
-% function net = train_mp(trn_x, trn_y, mp_hidden_layers, mp_trn_func, max_epoch, flag_batching, batch_nbr)
-% 
-% 
-% 
-% 
-%     disp("CONSTRUCTING Multi-layer perceptron...");
-%     net = 
-% 
-%     disp("TRAINING Multi-layer perceptron...");
-%     % Construct a feed forward neural network
-%     net = fitnet(mp_hidden_layers, mp_trn_func);
-% 
-%     % Configure neural network
-%     net.trainParam.epochs=max_epoch; % Epoch
-% 
-%     % If batch is used
-%     if flag_batching
-%         disp("Batching selected.");
-%         batch_size = round(size(trn_x, 1) / batch_nbr, 0); % sample size per batch
-%         fprintf("Batch size: %d Batch no.: batch_nbr %d", batch_size, batch_nbr);
-%         % Set network property to batch size
-%         net.trainFcn = 'trainb';
-%         net.
-%     else
-%         disp("Batching not selected.");
-%     end
-%     
-%     net.trainParam
-% 
-%     % Train network with re-sampled data
-%     net = train(net, transpose(trn_x), transpose(trn_y));
-%     disp(net.trainParam);
-%     view(net);
-% 
-% end
