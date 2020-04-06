@@ -5,7 +5,7 @@
 % conf = configuration, consisting of:
 %   .hidNum = array of hidden layer neurons number
 %   .activationFnc = list defined activation functions for hidden and
-%   output layers {'tnasig', 'logsig'} for one hidden and one output layers
+%   output layers {'tansig', 'logsig'} for one hidden and one output layers
 %   .eNum = no. of training epochs
 %   .bNum = no. of batches per epoch
 %   .sNum = no. of samples per batch

@@ -7,7 +7,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-function [best_trn_metrics, best_val_metrics, tst_metrics] = mlp_main(override_conf)
+function [model, best_trn_metrics, best_val_metrics, tst_metrics] = mlp_main(override_conf)
 
     % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % DATA IMPORT, COMPILE TRAIN, VALIDATION & TEST SETS
@@ -34,8 +34,8 @@ function [best_trn_metrics, best_val_metrics, tst_metrics] = mlp_main(override_c
     bNum = 1;
     sNum = floor(size(trn_x, 1)/bNum);
     lRate = 0.5;
-    momentum = 0.1;
     regCost = 0.0001;
+    momentum = 0.1;
 
     % EARLY STOPPING: EITHER ONE OF THE FOLLOWING STRATEGIES:
     % 'NO_EARLY_STOP' - no early stopping
@@ -88,6 +88,11 @@ function [best_trn_metrics, best_val_metrics, tst_metrics] = mlp_main(override_c
         lRate = override_conf.lRate;
     end
 
+    % Momentum Constant
+    if isfield(override_conf,'momentum')
+        momentum = override_conf.momentum;
+    end
+    
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % INITIALISATION
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    

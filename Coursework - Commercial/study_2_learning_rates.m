@@ -25,9 +25,10 @@ for i = 1:size(LRs, 2)
     conf.lRate = LRs(i);
 
     % Run, train, validation, test
-    [trn_metrics, val_metrics, tst_metrics] = mlp_main(conf);
+    [model, trn_metrics, val_metrics, tst_metrics] = mlp_main(conf);
 
     % Compile results
+    models{i} = model;
     confs{i} = conf;
     confText = "LR: " + num2str(conf.lRate);
     trn_metrics.configuration = confText;
