@@ -5,6 +5,7 @@
 
 clear();
 clc();
+rng('default');
 
 export_file_nm = "activation_func_tst_results.xlsx";
 

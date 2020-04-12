@@ -1,13 +1,13 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% STUDY: NETWORK ARCHITECTURE - 
-% HIDDEN LAYER SIZE
+% STUDY: SVM - 
+% kerenel function
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 clear();
 clc();
-rng('default')
+rng('default');
 
-export_file_nm = "hidden_layers_tst_results.xlsx";
+export_file_nm = "svm_kernel_tst_results.xlsx";
 
 neurons = {5, 10, 15, 20, 25, 30, 35, 40, 45, 50, ...
     [10, 5], [10, 10], [20, 10], [20, 20], ...
@@ -38,7 +38,7 @@ for i = 1:size(neurons, 2)
         conf.activationFnc = act_funcs_two_hidden;
     end
 
-    % Run, train, validation
+    % Run, train, validation, test
     [model, trn_metrics, val_metrics, tst_metrics] = mlp_main(conf);
 
     % Compile results
@@ -55,8 +55,7 @@ for i = 1:size(neurons, 2)
     tst_results = [tst_results; tst_metrics];
 
     % Plot ROC
-    plt_title = "ROC: Hidden Layers: " + num2str(conf.hidNum) + ...
-        "; " + " Activation Functions: " + string(conf.activationFnc);
+    plt_title = "ROC: SVM - kernel function: " + strinh(conf.hidNum);
     plot_ROC([], [], tst_metrics, i, plt_title(1));
 end
 
@@ -67,4 +66,4 @@ writetable(val_results(:, columnsToWrite), export_file_nm, 'Sheet','val_results'
 writetable(tst_results(:, columnsToWrite), export_file_nm, 'Sheet','tst_results','WriteVariableNames',false, 'Range', 'A1', 'WriteVariableNames', 1);
 
 % Save data
-save('study_1_hidden_layers_size.mat');
+save('study_6_svm_kernel_func.mat');

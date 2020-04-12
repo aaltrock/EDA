@@ -4,6 +4,7 @@
 
 clear();
 clc();
+rng('default');
 
 export_file_nm = "Momentum_tst_results.xlsx";
 
