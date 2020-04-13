@@ -1,5 +1,10 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% SVM - RUN TRAIN AND VALIDATION SET
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-function svm_main(conf)
+function [SVMModel, val_metrics] = svm_main(conf, trn_x, trn_y, val_x, val_y)
+     % Load data sets
+%      load('source.mat');
 
     % KernelFunction: 'gaussian', 'rbf', 'linear','polynomial'
     % Alpha coefficient: 'Alpha'
@@ -13,24 +18,26 @@ function svm_main(conf)
     % 'uniform' assume 1 / no. of class
 
     % Default settings
-    conf.stadardize = true;
-    conf.class_nms = {'-1','+1'};
-    conf.kern_func = 'linear';
-    conf.box_constr = 0.01;
-    conf.kernel_scale = 1;
-    conf.poly_order = 2;
-    conf.verbose = 1;
-    conf.cost = [0,1; 1,0];
-    conf.prior = 'empirical';
+    % Fixed hyper-parameter configurations
+    stadardize = true;
+    class_nms = {'-1','+1'};
+    kernel_scale = 1;
+    cost = [0,1; 1,0];
+    prior = 'empirical';
+    verbose = 0;
+    box_constr = 0;
+    
+    % Get conf from conf object
+    kern_func = conf.kern_func;
+    poly_order = conf.poly_order;
+    box_constr = conf.box_constr;
 
-    load('source.mat');
-
+    % Convert strings to labels
     [trn_y] = to_str_labels(trn_y);
     [val_y] = to_str_labels(val_y);
-    [tst_y] = to_str_labels(tst_y);
 
     % Train model
-    if strcmp(conf_kern_func, 'polynomial') == 1
+    if strcmp(kern_func, 'polynomial') == 1
     SVMModel = fitcsvm(trn_x, trn_y, ...
         'KernelFunction', kern_func,...
         'Standardize',stadardize, ...
@@ -39,6 +46,7 @@ function svm_main(conf)
         'PolynomialOrder', poly_order, ...
         'Cost', cost, ...
         'Prior', prior, ...
+        'BoxConstraint', box_constr, ...
         'Verbose', verbose);
     else
     SVMModel = fitcsvm(trn_x, trn_y, ...
@@ -48,6 +56,7 @@ function svm_main(conf)
         'KernelScale', kernel_scale, ...
         'Cost', cost, ...
         'Prior', prior, ...
+        'BoxConstraint', box_constr, ...
         'Verbose', verbose);  
     end
 
@@ -58,15 +67,15 @@ function svm_main(conf)
     pred_y = to_num_labels(pred_y);
     val_y = to_num_labels(val_y);
 
-    [~, val_metric] = calc_metrics(pred_y_score, pred_y, val_y, 1, 0, NaN);
+    % Calculate performance metrics
+    [~, val_metrics] = calc_metrics(pred_y_score, pred_y, val_y, 1, 0, NaN);
 
-    % Plot ROC
-    plt_title = "ROC: SVM";
-    i = 1;
-    plot_ROC([], val_metric, [], i, plt_title);
+%     % Plot ROC
+%     plt_title = "ROC: SVM";
+%     i = 1;
+%     plot_ROC([], val_metric, [], i, plt_title);
 
-
-    fprintf('---------- END ----------\n');
+%     fprintf('---------- END ----------\n');
 
     % Replace label to string '+1' or '-1'
     function [new_y] = to_str_labels(y)
