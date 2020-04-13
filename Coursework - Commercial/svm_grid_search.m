@@ -78,7 +78,6 @@ else
     % Find the increment counter at the last point and move to the next
     % iteration (+1)
     for_loop_start = size(val_results, 1) + 1;
-    disp('RESUME FROM ITERATION: ' + num2str(for_loop_start));
 end
 
 
@@ -126,9 +125,12 @@ end
 
 % Write results to file (Configuration, Epoch to FN columns)
 columnsToWrite = {'configuration', 'TPR', 'TNR', 'PPV', 'NPV', 'FNR', 'FPR', 'ACC', 'TP', 'FP', 'TN', 'FN'};
-writetable(trn_results(:, columnsToWrite), export_file_nm, 'Sheet','trn_results','WriteVariableNames',false, 'Range', 'A1', 'WriteVariableNames', 1);
+% writetable(trn_results(:, columnsToWrite), export_file_nm, 'Sheet','trn_results','WriteVariableNames',false, 'Range', 'A1', 'WriteVariableNames', 1);
 writetable(val_results(:, columnsToWrite), export_file_nm, 'Sheet','val_results','WriteVariableNames',false, 'Range', 'A1', 'WriteVariableNames', 1);
 % writetable(tst_results(:, columnsToWrite), export_file_nm, 'Sheet','tst_results','WriteVariableNames',false, 'Range', 'A1', 'WriteVariableNames', 1);
 
 % Save data
 save('svm_grid_search.mat');
+
+% Save configuration to file
+writetable(search_grid, 'svm_search_grid.xlsx', 'Sheet','search_grid'val_results','WriteVariableNames',false, 'Range', 'A1', 'WriteVariableNames', 1);

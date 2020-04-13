@@ -124,3 +124,6 @@ writetable(val_results(:, columnsToWrite), export_file_nm, 'Sheet','val_results'
 
 % Save data
 save('mlp_grid_search.mat');
+
+% Write search grid configuraiton to file
+writetable(search_grid, 'mlp_search_grid.xlsx', 'Sheet','search_grid','WriteVariableNames',false, 'Range', 'A1', 'WriteVariableNames', 1);
